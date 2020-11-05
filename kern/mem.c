@@ -52,6 +52,8 @@ mem_init(void)
 
 	// Compute the total number of physical pages (including I/O holes)
 	mem_npage = mem_max / PAGESIZE;
+	cprintf("mem_npage  0x%08x\n", mem_npage);	//gch
+
 
 	cprintf("Physical memory: %dK available, ", (int)(mem_max/1024));
 	cprintf("base = %dK, extended = %dK\n",
@@ -79,20 +81,46 @@ mem_init(void)
 	//     Hint: the linker places the kernel (see start and end above),
 	//     but YOU decide where to place the pageinfo array.
 	// Change the code to reflect this.
+
+	static pageinfo pi[0x40000];
+	mem_pageinfo = pi;
+
+	cprintf("pi=0x%08x  start=0x%08x  end=0x%08x\n", pi, start, end);
+
 	pageinfo **freetail = &mem_freelist;
-	int i;
-	for (i = 0; i < mem_npage; i++) {
+
+	void free(int n) {
 		// A free page has no references to it.
-		mem_pageinfo[i].refcount = 0;
+		mem_pageinfo[n].refcount = 0;
 
 		// Add the page to the end of the free list.
-		*freetail = &mem_pageinfo[i];
-		freetail = &mem_pageinfo[i].free_next;
+		*freetail = &mem_pageinfo[n];
+		freetail = &mem_pageinfo[n].free_next;
+	}
+
+	#define page(addr)	((addr)/PAGESIZE)
+	
+	int i;
+	for (i = 0; i < mem_npage; i++) {	//262,144
+		if ( i == 0 || i == 1) {
+			continue;
+		}
+		if ( i < page(MEM_IO)) {	//160
+			free(i);
+		}
+		if ( i < page(MEM_EXT)) {	//256
+			continue;
+		}
+		if ( i >= page(mem_phys(start)) && i <= page(mem_phys(end))) {	//256 to 777
+			continue;
+		}
+		free(i);
+
 	}
 	*freetail = NULL;	// null-terminate the freelist
 
 	// ...and remove this when you're ready.
-	panic("mem_init() not implemented");
+	//panic("mem_init() not implemented");
 
 	// Check to make sure the page allocator seems to work correctly.
 	mem_check();
@@ -114,7 +142,13 @@ mem_alloc(void)
 {
 	// Fill this function in
 	// Fill this function in.
-	panic("mem_alloc not implemented.");
+	//panic("mem_alloc not implemented.");
+
+	pageinfo *first = mem_freelist;
+	if (first) {
+		mem_freelist = mem_freelist->free_next;
+	}
+	return first;
 }
 
 //
@@ -125,7 +159,12 @@ void
 mem_free(pageinfo *pi)
 {
 	// Fill this function in.
-	panic("mem_free not implemented.");
+	//panic("mem_free not implemented.");
+
+	pi->free_next = mem_freelist;
+	mem_freelist = pi;
+	return;
+
 }
 
 //

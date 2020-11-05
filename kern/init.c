@@ -67,8 +67,38 @@ init(void)
 	// Lab 1: change this so it enters user() in user mode,
 	// running on the user_stack declared above,
 	// instead of just calling user() directly.
-	user();
+	//switch_to_user_mode();
+	//user();
+	enter_user_mode(user, user_stack+sizeof(user_stack));
 }
+
+
+void switch_to_user_mode()
+{
+   // Set up a stack structure for switching to user mode.
+   asm volatile("  \
+     mov $(0x20+3), %ax; \
+     mov %ax, %ds; \
+     mov %ax, %es; \
+     mov %ax, %fs; \
+     mov %ax, %gs; \
+                   \
+     mov %esp, %eax; \
+     pushl $(0x20+3); \
+     pushl %eax; \
+                 \
+     pushf; \
+     popl %eax; \
+     movl $(0x00003000), %ecx; \
+     or %eax, %ecx; \
+     pushl %ecx; \
+                 \
+     pushl $(0x18+3); \
+     push $1f; \
+     iret; \
+   1: \
+     ");
+} 
 
 // This is the first function that gets run in user mode (ring 3).
 // It acts as PIOS's "root process",

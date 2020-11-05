@@ -70,6 +70,9 @@ NCC	:= gcc $(CC_VER) -pipe
 TAR	:= gtar
 PERL	:= perl
 
+#gary
+#CFLAGS += -Wa,-adhln -g
+
 # If we're not using the special "PIOS edition" of GCC,
 # reconfigure the host OS's compiler for our purposes.
 ifneq ($(GCCPREFIX),pios-)
@@ -89,7 +92,8 @@ GCCALTDIR := $(dir $(shell $(CC) -print-libgcc-file-name))
 # Only optimize to -O1 to discourage inlining, which complicates backtraces.
 CFLAGS += $(DEFS) $(LABDEFS) -fno-builtin -I$(TOP) -I$(TOP)/inc \
 		-I$(GCCDIR)/include -I$(GCCALTDIR)/include \
-		-MD -Wall -Wno-unused -Werror -gstabs
+		-MD -Wall -Wno-unused -Werror -gstabs \
+		-fno-asynchronous-unwind-tables
 
 # Add -fno-stack-protector if the option exists.
 CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 \
@@ -137,7 +141,7 @@ include kern/Makefrag
 NCPUS = 2
 IMAGES = $(OBJDIR)/kern/kernel.img
 QEMUOPTS = -smp $(NCPUS) -hda $(OBJDIR)/kern/kernel.img -serial mon:stdio \
-		-k en-us -m 1100M
+		-k en-us -m 1100M -d guest_errors
 #QEMUNET = -net socket,mcast=230.0.0.1:$(NETPORT) -net nic,model=i82559er
 QEMUNET1 = -net nic,model=i82559er,macaddr=52:54:00:12:34:01 \
 		-net socket,connect=:$(NETPORT) -net dump,file=node1.dump

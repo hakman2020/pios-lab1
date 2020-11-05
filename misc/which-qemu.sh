@@ -7,8 +7,8 @@
 if test -x /c/cs422/tools/bin/qemu; then
 	echo /c/cs422/tools/bin/qemu
 	exit
-elif which qemu > /dev/null; then
-	echo qemu
+elif which qemu-system-i386 > /dev/null; then
+	echo qemu-system-i386
 	exit
 else
 	# Find the appropriate binary in the Mac OS X distribution
