@@ -33,12 +33,57 @@ static struct pseudodesc idt_pd = {
 };
 
 
+extern void th_divide(void);
+extern void th_debug(void);
+extern void th_nmi(void);
+extern void th_brkpt(void);
+extern void th_oflow(void);
+extern void th_bound(void);
+extern void th_illop(void);
+extern void th_device(void);
+
+extern void th_dblflt(void);
+extern void th_tss(void);
+extern void th_segnp(void);
+extern void th_stack(void);
+extern void th_gpflt(void);
+extern void th_pgflt(void);
+
+extern void th_fperr(void);
+
+extern void th_align(void);
+
+extern void th_mchk(void);
+extern void th_simd(void);
+extern void th_secev(void);
+
 static void
 trap_init_idt(void)
 {
 	extern segdesc gdt[];
 	
-	panic("trap_init() not implemented.");
+	//panic("trap_init() not implemented.");
+
+	SETGATE(idt[T_DIVIDE],0,CPU_GDT_KCODE,th_divide,0)
+	SETGATE(idt[T_DEBUG],0,CPU_GDT_KCODE,th_debug,0)
+	SETGATE(idt[T_NMI],0,CPU_GDT_KCODE,th_nmi,0)
+	SETGATE(idt[T_BRKPT],0,CPU_GDT_KCODE,th_brkpt,3)
+	SETGATE(idt[T_OFLOW],0,CPU_GDT_KCODE,th_oflow,3)
+	SETGATE(idt[T_BOUND],0,CPU_GDT_KCODE,th_bound,0)
+	SETGATE(idt[T_ILLOP],0,CPU_GDT_KCODE,th_illop,0)
+	SETGATE(idt[T_DEVICE],0,CPU_GDT_KCODE,th_device,0)
+	SETGATE(idt[T_DBLFLT],0,CPU_GDT_KCODE,th_dblflt,0)
+	SETGATE(idt[T_TSS],0,CPU_GDT_KCODE,th_tss,0)
+	SETGATE(idt[T_SEGNP],0,CPU_GDT_KCODE,th_segnp,0)
+	SETGATE(idt[T_STACK],0,CPU_GDT_KCODE,th_stack,0)
+	SETGATE(idt[T_GPFLT],0,CPU_GDT_KCODE,th_gpflt,0)
+	SETGATE(idt[T_PGFLT],0,CPU_GDT_KCODE,th_pgflt,0)
+	SETGATE(idt[T_FPERR],0,CPU_GDT_KCODE,th_fperr,0)
+	SETGATE(idt[T_ALIGN],0,CPU_GDT_KCODE,th_align,0)
+	SETGATE(idt[T_MCHK],0,CPU_GDT_KCODE,th_mchk,0)
+	SETGATE(idt[T_SIMD],0,CPU_GDT_KCODE,th_simd,0)
+	SETGATE(idt[T_SECEV],0,CPU_GDT_KCODE,th_secev,0)
+
 }
 
 void
@@ -179,6 +224,7 @@ trap_check_user(void)
 	assert((read_cs() & 3) == 3);	// better be in user mode!
 
 	cpu *c = &cpu_boot;	// cpu_cur doesn't work from user mode!
+	assert(c->magic == CPU_MAGIC);	//gch
 	c->recover = trap_check_recover;
 	trap_check(&c->recoverdata);
 	c->recover = NULL;	// No more mr. nice-guy; traps are real again

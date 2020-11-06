@@ -40,6 +40,15 @@ cpu cpu_boot = {
 		// 0x10 - kernel data segment
 		[CPU_GDT_KDATA >> 3] = SEGDESC32(1, STA_W, 0x0,
 					0xffffffff, 0),
+
+		// 0x18 - user code segment
+		[CPU_GDT_UCODE >> 3] = SEGDESC32(1, STA_X | STA_R, 0x0,
+					0xffffffff, 3),
+
+		// 0x20 - user data segment
+		[CPU_GDT_UDATA >> 3] = SEGDESC32(1, STA_W, 0x0,
+					0xffffffff, 3),
+
 	},
 
 	magic: CPU_MAGIC
@@ -49,6 +58,13 @@ cpu cpu_boot = {
 void cpu_init()
 {
 	cpu *c = cpu_cur();
+
+	// 1. the TSS is a system descripter (as opposed to a code or data descripter as above)
+	// 2. type is "Available 32 bit TSS" even though we use a 16 bit creation macro 
+	uint32_t base = (uint32_t) &c->tss;
+	uint32_t limit = sizeof(c->tss);
+	c->gdt[CPU_GDT_TSS >> 3] = SEGDESC16(0, STS_T32A, base, base+limit, 3);
+
 
 	// Load the GDT
 	struct pseudodesc gdt_pd = {
@@ -65,6 +81,18 @@ void cpu_init()
 
 	// We don't need an LDT.
 	asm volatile("lldt %%ax" :: "a" (0));
+
+
+	//Configure the TSS
+	memset((void*)base, 0, limit);
+	c->tss.ts_ss0 = CPU_GDT_KDATA;
+	c->tss.ts_esp0 = (uintptr_t) c->kstackhi;
+	c->tss.ts_cs   = CPU_GDT_KCODE+0;
+	c->tss.ts_ss = c->tss.ts_ds = c->tss.ts_es = c->tss.ts_fs = c->tss.ts_gs = CPU_GDT_KDATA+0;
+
+	//Load the TSS
+	ltr(CPU_GDT_TSS+0);
+
 }
 
 // Allocate an additional cpu struct representing a non-bootstrap processor.
@@ -135,4 +163,7 @@ cpu_bootothers(void)
 			;
 	}
 }
+
+
+
 
