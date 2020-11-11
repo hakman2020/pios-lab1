@@ -15,6 +15,7 @@
 #include <kern/trap.h>
 #include <kern/proc.h>
 #include <kern/init.h>
+#include <kern/ready_queue.h>
 
 
 
@@ -23,6 +24,8 @@ proc proc_null;		// null process - just leave it initialized to 0
 proc *proc_root;	// root process, once it's created in init()
 
 // LAB 2: insert your scheduling data structure declarations here.
+ready_queue redi_ku;		//process ready queue
+
 
 
 void
@@ -32,6 +35,8 @@ proc_init(void)
 		return;
 
 	// your module initialization code here
+	proc_root = proc_alloc(0,0);
+	ready_queue_init(&redi_ku);
 }
 
 // Allocate and initialize a new proc as child 'cn' of parent 'p'.
@@ -66,7 +71,9 @@ proc_alloc(proc *p, uint32_t cn)
 void
 proc_ready(proc *p)
 {
-	panic("proc_ready not implemented");
+	//panic("proc_ready not implemented");
+	ready_queue_ready(&redi_ku, p);
+	p->state = PROC_READY;
 }
 
 // Save the current process's state before switching to another process.
@@ -93,14 +100,18 @@ proc_wait(proc *p, proc *cp, trapframe *tf)
 void gcc_noreturn
 proc_sched(void)
 {
-	panic("proc_sched not implemented");
+	//panic("proc_sched not implemented");
+	proc_run(ready_queue_sched(&redi_ku));
 }
 
 // Switch to and run a specified process, which must already be locked.
 void gcc_noreturn
 proc_run(proc *p)
 {
-	panic("proc_run not implemented");
+	//panic("proc_run not implemented");
+	p->state = PROC_RUN;
+	p->runcpu = cpu_cur();
+	enter_user_mode((void*)p->sv.tf.eip, (void*)p->sv.tf.esp);
 }
 
 // Yield the current CPU to another ready process.

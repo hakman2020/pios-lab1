@@ -10,15 +10,24 @@
 
 #include <inc/assert.h>
 #include <inc/x86.h>
+#include <inc/string.h>
 
 #include <kern/cpu.h>
 #include <kern/spinlock.h>
 #include <kern/cons.h>
 
 
+
+
+
 void
 spinlock_init_(struct spinlock *lk, const char *file, int line)
 {
+	lk->locked = 0;
+	lk->file = file;
+	lk->cpu = NULL;
+	lk->line = line;
+	memset(lk->eips, 0, sizeof(lk->eips));
 }
 
 // Acquire the lock.
@@ -28,19 +37,39 @@ spinlock_init_(struct spinlock *lk, const char *file, int line)
 void
 spinlock_acquire(struct spinlock *lk)
 {
+	if (spinlock_holding(lk)) {
+		panic("the current CPU is already holding the spinlock");
+	}
+
+	for (;;) {
+		if (!xchg(&lk->locked, 1)) {
+			lk->cpu = cpu_cur();
+			debug_trace(read_ebp(),lk->eips);
+			return;
+		}
+		pause();
+	}
 }
 
 // Release the lock.
 void
 spinlock_release(struct spinlock *lk)
 {
+	if (!spinlock_holding(lk)) {
+		panic("the current CPU is not holding the spinlock");
+	}
+
+	xchg(&lk->locked, 0);
+	lk->cpu = NULL;
+	memset(lk->eips, 0, sizeof(lk->eips));
 }
 
 // Check whether this cpu is holding the lock.
 int
 spinlock_holding(spinlock *lock)
 {
-	panic("spinlock_holding() not implemented");
+	//panic("spinlock_holding() not implemented");
+	return lock->locked && lock->cpu == cpu_cur();
 }
 
 // Function that simply recurses to a specified depth.

@@ -75,18 +75,24 @@ init(void)
 	ioapic_init();		// prepare to handle external device interrupts
 	lapic_init();		// setup this CPU's local APIC
 	cpu_bootothers();	// Get other processors started
-//	cprintf("CPU %d (%s) has booted\n", cpu_cur()->id,
-//		cpu_onboot() ? "BP" : "AP");
+	cprintf("CPU %d (%s) has booted\n", cpu_cur()->id,
+		cpu_onboot() ? "BP" : "AP");
 
 	// Initialize the process management code.
 	proc_init();
+
+	//Lab 2 exercise 3 stuff
+	proc_root->sv.tf.eip = (uint32_t) user;
+	proc_root->sv.tf.esp = (uint32_t) user_stack + sizeof(user_stack);
+	proc_ready(proc_root);
+	proc_sched();
 
 	// Lab 1: change this so it enters user() in user mode,
 	// running on the user_stack declared above,
 	// instead of just calling user() directly.
 	//switch_to_user_mode();
 	//user();
-	enter_user_mode(user, user_stack+sizeof(user_stack));
+	//enter_user_mode(user, user_stack+sizeof(user_stack));
 }
 
 
@@ -128,7 +134,7 @@ user()
 	assert(read_esp() < (uint32_t) &user_stack[sizeof(user_stack)]);
 
 	// Check the system call and process scheduling code.
-	proc_check();
+	//proc_check();
 
 	done();
 }

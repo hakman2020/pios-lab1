@@ -57,6 +57,9 @@ extern void th_mchk(void);
 extern void th_simd(void);
 extern void th_secev(void);
 
+extern void th_syscall(void);
+
+
 static void
 trap_init_idt(void)
 {
@@ -83,6 +86,8 @@ trap_init_idt(void)
 	SETGATE(idt[T_MCHK],0,CPU_GDT_KCODE,th_mchk,0)
 	SETGATE(idt[T_SIMD],0,CPU_GDT_KCODE,th_simd,0)
 	SETGATE(idt[T_SECEV],0,CPU_GDT_KCODE,th_secev,0)
+
+	SETGATE(idt[T_SYSCALL],0,CPU_GDT_KCODE,th_syscall,3)
 
 }
 
@@ -178,6 +183,9 @@ trap(trapframe *tf)
 		c->recover(tf, c->recoverdata);
 
 	// Lab 2: your trap handling code here!
+	if (tf->trapno == T_SYSCALL) {
+		syscall(tf);
+	}
 
 	// If we panic while holding the console lock,
 	// release it so we don't get into a recursive panic that way.

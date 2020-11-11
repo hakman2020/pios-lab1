@@ -30,6 +30,7 @@ KERN_SRCFILES :=	kern/entry.S \
 			kern/pmap.c \
 			kern/file.c \
 			kern/net.c \
+			kern/ready_queue.c \
 			dev/video.c \
 			dev/kbd.c \
 			dev/serial.c \

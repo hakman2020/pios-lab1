@@ -24,9 +24,10 @@ size_t mem_max;			// Maximum physical address
 size_t mem_npage;		// Total number of physical memory pages
 
 pageinfo *mem_pageinfo;		// Metadata array indexed by page number
-
 pageinfo *mem_freelist;		// Start of free page list
+spinlock mem_c_lock;		// protect mem_freelist
 
+#define ONE_GB (1024*1024*1024)
 
 void mem_check(void);
 
@@ -46,14 +47,14 @@ mem_init(void)
 	size_t extmem = ROUNDDOWN(nvram_read16(NVRAM_EXTLO)*1024, PAGESIZE);
 
 	warn("Assuming we have 1GB of memory!");
-	extmem = 1024*1024*1024 - MEM_EXT;	// assume 1GB total memory
+	extmem = ONE_GB - MEM_EXT;	// assume 1GB total memory
 
 	// The maximum physical address is the top of extended memory.
 	mem_max = MEM_EXT + extmem;
 
 	// Compute the total number of physical pages (including I/O holes)
 	mem_npage = mem_max / PAGESIZE;
-	cprintf("mem_npage  0x%08x\n", mem_npage);	//gch
+	cprintf("mem_npage=0x%08x\n", mem_npage);	//gch
 
 
 	cprintf("Physical memory: %dK available, ", (int)(mem_max/1024));
@@ -83,7 +84,10 @@ mem_init(void)
 	//     but YOU decide where to place the pageinfo array.
 	// Change the code to reflect this.
 
-	static pageinfo pi[0x40000];
+
+	#define page(addr)	((addr)/PAGESIZE)
+
+	static pageinfo pi[page(ONE_GB)];
 	mem_pageinfo = pi;
 
 	cprintf("pi=0x%08x  start=0x%08x  end=0x%08x\n", pi, start, end);
@@ -99,7 +103,6 @@ mem_init(void)
 		freetail = &mem_pageinfo[n].free_next;
 	}
 
-	#define page(addr)	((addr)/PAGESIZE)
 	
 	int i;
 	for (i = 0; i < mem_npage; i++) {	//262,144
@@ -123,6 +126,8 @@ mem_init(void)
 	// ...and remove this when you're ready.
 	//panic("mem_init() not implemented");
 
+	spinlock_init(&mem_c_lock);
+
 	// Check to make sure the page allocator seems to work correctly.
 	mem_check();
 }
@@ -145,11 +150,13 @@ mem_alloc(void)
 	// Fill this function in.
 	//panic("mem_alloc not implemented.");
 
-	pageinfo *first = mem_freelist;
-	if (first) {
+	spinlock_acquire(&mem_c_lock);
+	pageinfo *head = mem_freelist;
+	if (head) {
 		mem_freelist = mem_freelist->free_next;
 	}
-	return first;
+	spinlock_release(&mem_c_lock);
+	return head;
 }
 
 //
@@ -162,8 +169,10 @@ mem_free(pageinfo *pi)
 	// Fill this function in.
 	//panic("mem_free not implemented.");
 
+	spinlock_acquire(&mem_c_lock);
 	pi->free_next = mem_freelist;
 	mem_freelist = pi;
+	spinlock_release(&mem_c_lock);
 	return;
 
 }

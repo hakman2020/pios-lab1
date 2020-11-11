@@ -87,6 +87,41 @@ do_cputs(trapframe *tf, uint32_t cmd)
 	trap_return(tf);	// syscall completed
 }
 
+static void
+do_put(trapframe *tf, uint32_t cmd)
+{
+	uint32_t flags = tf->regs.eax;
+	procstate *save = tf->regs.ebx;
+	uint32_t child_slot = tf->regs.edx;
+
+	proc *parent = proc_cur();
+
+	proc *child = proc_alloc(parent, child_slot);
+	child->sv.tf.eip = save->tf.eip;
+	child->sv.tf.esp = save->tf.esp;
+
+	if (flags & SYS_START) {
+		proc_ready(child);
+		proc_sched();
+	}
+
+	trap_return(tf);	// syscall completed
+}
+
+static void
+do_get(trapframe *tf, uint32_t cmd)
+{
+
+	trap_return(tf);	// syscall completed
+}
+
+static void
+do_ret(trapframe *tf, uint32_t cmd)
+{
+
+	trap_return(tf);	// syscall completed
+}
+
 // Common function to handle all system calls -
 // decode the system call type and call an appropriate handler function.
 // Be sure to handle undefined system calls appropriately.
@@ -98,6 +133,9 @@ syscall(trapframe *tf)
 	switch (cmd & SYS_TYPE) {
 	case SYS_CPUTS:	return do_cputs(tf, cmd);
 	// Your implementations of SYS_PUT, SYS_GET, SYS_RET here...
+	case SYS_PUT:	return do_put(tf, cmd);
+	case SYS_GET:	return do_get(tf, cmd);
+	case SYS_RET:	return do_ret(tf, cmd);
 	default:	return;		// handle as a regular trap
 	}
 }

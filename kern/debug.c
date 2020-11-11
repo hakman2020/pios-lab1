@@ -12,6 +12,7 @@
 #include <inc/stdarg.h>
 #include <inc/assert.h>
 #include <inc/x86.h>
+#include <inc/string.h>
 
 #include <kern/cons.h>
 #include <kern/debug.h>
@@ -74,20 +75,18 @@ debug_trace(uint32_t ebp, uint32_t eips[DEBUG_TRACEFRAMES])
 {
 	//panic("debug_trace not implemented");
 
-   	uint32_t* _ebp = (uint32_t*) ebp;
+   	uint32_t *_ebp = (uint32_t*) ebp;
+   	int i;
 
-	for (int i = 0; i < DEBUG_TRACEFRAMES; i++) {
+	for (i = 0; i < DEBUG_TRACEFRAMES; i++) {
     	if (_ebp == 0) {
-    		for (int j = i; j < DEBUG_TRACEFRAMES; j++) { 
-	    		eips[j] = 0; 
-    		}
-			//cprintf("----------\n");
-    		return;
+    		break;
     	}
-    	uint32_t* _eip = _ebp + 1;
-    	eips[i] = *_eip; 
-    	//cprintf("ebp %x eip %x\n",_ebp, *_eip);
-    	_ebp = (uint32_t*) *_ebp;
+    	eips[i] = _ebp[1]; 
+    	_ebp = (uint32_t*) _ebp[0];
+	}
+	for (; i < DEBUG_TRACEFRAMES; i++) {
+		eips[i] = 0;
 	}
 
 }
