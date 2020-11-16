@@ -64,6 +64,7 @@ void proc_save(proc *p, trapframe *tf, int entry);	// save process state
 void proc_wait(proc *p, proc *cp, trapframe *tf) gcc_noreturn;
 void proc_sched(void) gcc_noreturn;	// Find and run some ready process
 void proc_run(proc *p) gcc_noreturn;	// Run a specific process
+void proc_run_from_trap(proc *p) gcc_noreturn;	// gch
 void proc_yield(trapframe *tf) gcc_noreturn;	// Yield to another process
 void proc_ret(trapframe *tf, int entry) gcc_noreturn;	// Return to parent
 void proc_check(void);			// Check process code

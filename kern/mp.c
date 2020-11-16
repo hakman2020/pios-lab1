@@ -127,7 +127,7 @@ mp_init(void)
 
 			// Get a cpu struct and kernel stack for this CPU.
 			cpu *c = (proc->flags & MPBOOT)
-					? &cpu_boot : cpu_alloc();
+					? &cpu_boot : cpu_alloc(); // cpu_alloc chains the cpus together
 			c->id = proc->apicid;
 			ncpu++;
 			continue;

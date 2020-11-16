@@ -75,53 +75,36 @@ init(void)
 	ioapic_init();		// prepare to handle external device interrupts
 	lapic_init();		// setup this CPU's local APIC
 	cpu_bootothers();	// Get other processors started
-	cprintf("CPU %d (%s) has booted\n", cpu_cur()->id,
-		cpu_onboot() ? "BP" : "AP");
+	//cprintf("CPU %d (%s) has booted\n", cpu_cur()->id,
+	//	cpu_onboot() ? "BP" : "AP");
+	cpu_which_where("has booted");
 
 	// Initialize the process management code.
 	proc_init();
 
 	//Lab 2 exercise 3 stuff
-	proc_root->sv.tf.eip = (uint32_t) user;
-	proc_root->sv.tf.esp = (uint32_t) user_stack + sizeof(user_stack);
-	proc_ready(proc_root);
-	proc_sched();
+	//proc_root->sv.tf.eip = (uint32_t) user;
+	//proc_root->sv.tf.esp = (uint32_t) user_stack + sizeof(user_stack);-
+	//proc_ready(proc_root);
+	//proc_sched();
 
 	// Lab 1: change this so it enters user() in user mode,
 	// running on the user_stack declared above,
 	// instead of just calling user() directly.
-	//switch_to_user_mode();
 	//user();
+
+	uint32_t *esp = (uint32_t*) &user_stack[PAGESIZE];
+	proc_root->sv.tf.esp = (uint32_t) esp;
+	proc_root->sv.tf.eip = (uint32_t) user;
+
+
+
+	//proc_ready(proc_root);
+	//proc_sched();
+	proc_run(proc_root);
 	//enter_user_mode(user, user_stack+sizeof(user_stack));
 }
 
-
-void switch_to_user_mode()
-{
-   // Set up a stack structure for switching to user mode.
-   asm volatile("  \
-     mov $(0x20+3), %ax; \
-     mov %ax, %ds; \
-     mov %ax, %es; \
-     mov %ax, %fs; \
-     mov %ax, %gs; \
-                   \
-     mov %esp, %eax; \
-     pushl $(0x20+3); \
-     pushl %eax; \
-                 \
-     pushf; \
-     popl %eax; \
-     movl $(0x00003000), %ecx; \
-     or %eax, %ecx; \
-     pushl %ecx; \
-                 \
-     pushl $(0x18+3); \
-     push $1f; \
-     iret; \
-   1: \
-     ");
-} 
 
 // This is the first function that gets run in user mode (ring 3).
 // It acts as PIOS's "root process",
@@ -130,11 +113,12 @@ void
 user()
 {
 	cprintf("in user()\n");
+	//cpu_which_where("user");
 	assert(read_esp() > (uint32_t) &user_stack[0]);
 	assert(read_esp() < (uint32_t) &user_stack[sizeof(user_stack)]);
 
 	// Check the system call and process scheduling code.
-	//proc_check();
+	proc_check();
 
 	done();
 }
@@ -149,4 +133,3 @@ done()
 	while (1)
 		;	// just spin
 }
-

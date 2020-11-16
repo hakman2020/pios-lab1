@@ -70,7 +70,7 @@ NCC	:= gcc $(CC_VER) -pipe
 TAR	:= gtar
 PERL	:= perl
 
-#gary
+#gch
 #CFLAGS += -Wa,-adhln -g
 
 # If we're not using the special "PIOS edition" of GCC,
@@ -139,7 +139,7 @@ include lib/Makefrag
 
 
 
-NCPUS = 1
+NCPUS = 2
 IMAGES = $(OBJDIR)/kern/kernel.img
 QEMUOPTS = -smp $(NCPUS) -hda $(OBJDIR)/kern/kernel.img -serial mon:stdio \
 		-k en-us -m 1100M -d guest_errors

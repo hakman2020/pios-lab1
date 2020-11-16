@@ -22,8 +22,8 @@ void init(void);
 
 // First function run in user mode (only on one processor)
 void user(void);
-void enter_user_mode(void*, void*) gcc_noreturn;
-void switch_to_user_mode(void);
+//void enter_user_mode(void*, void*) gcc_noreturn;
+//void switch_to_user_mode(void);
 
 // Called when there is no more work left to do in the system.
 // The grading scripts trap calls to this to know when to stop.

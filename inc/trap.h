@@ -135,6 +135,13 @@ typedef gcc_aligned(16) struct fxsave {
 	uint8_t		available[3][16];	// byte 464: available to OS
 } fxsave;
 
+void enter_user_mode(void*,void*) gcc_noreturn;
+
+static void gcc_noreturn
+trap_return_gary(trapframe *tf)	{
+	enter_user_mode((void*)tf->eip, (void*)tf->esp);
+}
+
 
 #endif /* !__ASSEMBLER__ */
 

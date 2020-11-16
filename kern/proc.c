@@ -31,12 +31,14 @@ ready_queue redi_ku;		//process ready queue
 void
 proc_init(void)
 {
+	
+
 	if (!cpu_onboot())
 		return;
 
 	// your module initialization code here
-	proc_root = proc_alloc(0,0);
 	ready_queue_init(&redi_ku);
+	proc_root = proc_alloc(0,0);
 }
 
 // Allocate and initialize a new proc as child 'cn' of parent 'p'.
@@ -74,6 +76,7 @@ proc_ready(proc *p)
 	//panic("proc_ready not implemented");
 	ready_queue_ready(&redi_ku, p);
 	p->state = PROC_READY;
+
 }
 
 // Save the current process's state before switching to another process.
@@ -92,16 +95,24 @@ proc_save(proc *p, trapframe *tf, int entry)
 // Parent process 'p' must be running and locked on entry.
 // The supplied trapframe represents p's register state on syscall entry.
 void gcc_noreturn
-proc_wait(proc *p, proc *cp, trapframe *tf)
+proc_wait(proc *parent, proc *child, trapframe *parent_tf)
 {
-	panic("proc_wait not implemented");
+	//panic("proc_wait not implemented");
+	parent->state = PROC_WAIT;
+	parent->waitchild = child;
+	parent->sv.tf.eip = parent_tf->eip;
+	parent->sv.tf.esp = parent_tf->esp;
+	proc_ready(child);
+	proc_sched();	//pick a process, return from trap "into" it (run it)
 }
 
 void gcc_noreturn
 proc_sched(void)
 {
 	//panic("proc_sched not implemented");
-	proc_run(ready_queue_sched(&redi_ku));
+
+	proc *p = ready_queue_sched(&redi_ku);
+	proc_run(p);
 }
 
 // Switch to and run a specified process, which must already be locked.
@@ -109,9 +120,25 @@ void gcc_noreturn
 proc_run(proc *p)
 {
 	//panic("proc_run not implemented");
+	assert(p);
+	cpu_which_where("proc_run");
+	cprintf("in proc_run: p=%x\n",p);
 	p->state = PROC_RUN;
 	p->runcpu = cpu_cur();
+	cpu_cur()->proc = p; 
 	enter_user_mode((void*)p->sv.tf.eip, (void*)p->sv.tf.esp);
+}
+
+void gcc_noreturn
+proc_run_from_trap(proc *p)
+{
+	//panic("proc_run not implemented");
+	cpu_which_where("proc_run_from_trap");
+	cprintf("in proc_run_from_trap: p=%x\n",p);
+	p->state = PROC_RUN;
+	p->runcpu = cpu_cur();
+	cpu_cur()->proc = p; 
+	trap_return(&(p->sv.tf));
 }
 
 // Yield the current CPU to another ready process.
@@ -219,9 +246,10 @@ static void child(int n)
 	if (n < 2) {
 		int i;
 		for (i = 0; i < 10; i++) {
-			cprintf("in child %d count %d\n", n, i);
-			while (pingpong != n)
+			cprintf("in child=%d count=%d pingpong=%d\n", n, i, pingpong);
+			while (pingpong != n) {
 				pause();
+			}
 			xchg(&pingpong, !pingpong);
 		}
 		sys_ret();

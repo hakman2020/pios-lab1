@@ -153,7 +153,7 @@ cpu_bootothers(void)
 		if(c == cpu_cur())  // We''ve started already.
 			continue;
 
-		// Fill in %esp, %eip and start code on cpu.
+		// Fill in %esp, %eip and start code on cpu. Self modifying code baby!
 		*(void**)(code-4) = c->kstackhi;
 		*(void**)(code-8) = init;
 		lapic_startcpu(c->id, (uint32_t)code);

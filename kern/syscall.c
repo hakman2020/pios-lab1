@@ -82,44 +82,106 @@ static void
 do_cputs(trapframe *tf, uint32_t cmd)
 {
 	// Print the string supplied by the user: pointer in EBX
-	cprintf("%s", (char*)tf->regs.ebx);
+	cprintf("sc->%s", (char*)tf->regs.ebx);
 
 	trap_return(tf);	// syscall completed
+	//enter_user_mode((void*)tf->eip, (void*)tf->esp);
 }
 
 static void
 do_put(trapframe *tf, uint32_t cmd)
 {
 	uint32_t flags = tf->regs.eax;
-	procstate *save = tf->regs.ebx;
 	uint32_t child_slot = tf->regs.edx;
+	procstate *child_state = (procstate *) tf->regs.ebx;
 
-	proc *parent = proc_cur();
+	cpu_which_where("do_put");
+	proc *parent = cpu_cur()->proc;
+	assert(parent);
 
-	proc *child = proc_alloc(parent, child_slot);
-	child->sv.tf.eip = save->tf.eip;
-	child->sv.tf.esp = save->tf.esp;
-
-	if (flags & SYS_START) {
-		proc_ready(child);
-		proc_sched();
+	proc *child = parent->child[child_slot];
+	if (!child) {
+		child = proc_alloc(parent, child_slot);
 	}
 
-	trap_return(tf);	// syscall completed
+	//put parent to sleep and wait for child to call sys_ret() (which will stop it)
+	if (child->state != PROC_STOP) {
+		// lab 2 part 3: dont worry about multiprocesser now
+		// get it working for single processer first
+	}
+
+	// the _put_ part of do_put()
+	if (flags & SYS_REGS) {
+		child->sv.tf.eip = child_state->tf.eip;
+		child->sv.tf.esp = child_state->tf.esp;
+	}
+
+	// run the child
+	if (flags & SYS_START) {
+		parent->state = PROC_WAIT;
+		proc_run(child);
+	}
+
+	// no  _start_ or _put_ requested, so just return
+	// apparently, do_put() can be dont_put()
+	// ho humm boring. actually not. you may have just created a brand new process.
+	// congratulations to the new parent!
+	trap_return(tf);
 }
 
 static void
 do_get(trapframe *tf, uint32_t cmd)
 {
+	uint32_t flags = tf->regs.eax;
+	uint32_t child_slot = tf->regs.edx;
+	procstate *save = (procstate *) tf->regs.ebx;
 
-	trap_return(tf);	// syscall completed
+	proc *parent = proc_cur();
+	assert(parent);
+
+	proc *child = parent->child[child_slot];
+	if (!child) {
+		trap_return(tf);
+	}
+
+	//put parent to sleep and wait for child to return
+	if (child->state != PROC_STOP) {
+		parent->state = PROC_WAIT;
+		parent->waitchild = child;
+		parent->sv.tf.eip = tf->eip;
+		parent->sv.tf.esp = tf->esp;
+		tf->eip = child->sv.tf.eip;
+		tf->esp = child->sv.tf.esp;
+		trap_return(tf);
+	}
+
+	// the get part of do_get()
+	if (flags & SYS_REGS) {
+		save->tf.eip = child->sv.tf.eip;
+		save->tf.esp = child->sv.tf.esp;
+	}
+
+	trap_return(tf);
 }
 
 static void
 do_ret(trapframe *tf, uint32_t cmd)
 {
+	proc *child = proc_cur();
+	assert(child);
+	proc *parent = child->parent;
+	assert(parent);
 
-	trap_return(tf);	// syscall completed
+	uint32_t child_slot = tf->regs.edx;
+	cprintf("do_ret: child=%d  parent=%x  child=%x", child_slot, parent->waitchild, child);
+
+	if (parent->waitchild == child) {
+		child->state = PROC_STOP;
+		proc_ready(parent);
+		proc_sched();
+	}
+
+	trap_return(tf);
 }
 
 // Common function to handle all system calls -

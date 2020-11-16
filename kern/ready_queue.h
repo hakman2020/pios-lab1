@@ -10,7 +10,7 @@
 typedef struct ready_queue {
 proc *head, *tail;		//ready queue
 spinlock lock;	//protects the ready queue
-proc dummy;	//always at head of ready queue ( assert(head == &dummy) )
+proc dummy;	//always at head of ready queue ( in geek: assert(head == &dummy) )
 } ready_queue;
 
 

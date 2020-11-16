@@ -99,6 +99,11 @@ cpu_onboot() {
 	return cpu_cur() == &cpu_boot;
 }
 
+static inline void
+cpu_which_where(char *where) {
+	cprintf("CPU %d (%s) in %s\n", cpu_cur()->id, cpu_onboot() ? "BP" : "AP", where);
+}
+
 
 // Set up the current CPU's private register state such as GDT and TSS.
 // Assumes the cpu struct for this CPU is basically initialized
