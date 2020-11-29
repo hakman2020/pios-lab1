@@ -18,6 +18,7 @@
 #include <kern/init.h>
 #include <kern/proc.h>
 #include <kern/syscall.h>
+#include <kern/local_apic.h>
 
 #include <dev/lapic.h>
 
@@ -58,6 +59,8 @@ extern void th_simd(void);
 extern void th_secev(void);
 
 extern void th_syscall(void);
+extern void th_ltimer(void);
+extern void th_spurious(void);
 
 
 static void
@@ -88,6 +91,10 @@ trap_init_idt(void)
 	SETGATE(idt[T_SECEV],0,CPU_GDT_KCODE,th_secev,0)
 
 	SETGATE(idt[T_SYSCALL],0,CPU_GDT_KCODE,th_syscall,3)
+	SETGATE(idt[T_LTIMER],0,CPU_GDT_KCODE,th_ltimer,3)
+	SETGATE(idt[T_IRQ0 + IRQ_SPURIOUS],0,CPU_GDT_KCODE,th_spurious,3)
+
+
 
 }
 
@@ -104,7 +111,8 @@ trap_init(void)
 
 	// Check for the correct IDT and trap handler operation.
 	if (cpu_onboot())
-		trap_check_kernel();
+		//trap_check_kernel();
+		;
 }
 
 const char *trap_name(int trapno)
@@ -187,12 +195,33 @@ trap(trapframe *tf)
 		syscall(tf);
 	}
 
+	if (tf->trapno == T_LTIMER) {
+		local_apic(tf);
+	}
+
+	if (tf->trapno == T_IRQ0+IRQ_SPURIOUS) {
+		local_apic(tf);
+	}
+
+	if (tf->trapno >= T_DIVIDE && tf->trapno <= T_SECEV) {
+		if (tf->cs & 3) {
+			proc_ret(tf, PROC_TRAP_REFLECT);
+		}
+	}
+
 	// If we panic while holding the console lock,
 	// release it so we don't get into a recursive panic that way.
 	if (spinlock_holding(&cons_lock))
 		spinlock_release(&cons_lock);
 	trap_print(tf);
 	panic("unhandled trap");
+}
+
+void gcc_noreturn
+trap_return(trapframe *tf)
+{
+	tf->eflags = tf->eflags | FL_IF;	//interrupt flag for preemption
+	trap_return_(tf);
 }
 
 

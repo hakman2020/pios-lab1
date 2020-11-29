@@ -19,6 +19,10 @@
 #include <kern/spinlock.h>
 #define PROC_CHILDREN	256	// Max # of children a process can have
 
+#define PROC_SYSCALL_RESTART	0
+#define	PROC_SYSCALL_COMPLETE	1
+#define	PROC_TRAP_REFLECT		-1
+
 typedef enum proc_state {
 	PROC_STOP	= 0,	// Passively waiting for parent to run it
 	PROC_READY,		// Scheduled to run but not running now
@@ -64,10 +68,10 @@ void proc_save(proc *p, trapframe *tf, int entry);	// save process state
 void proc_wait(proc *p, proc *cp, trapframe *tf) gcc_noreturn;
 void proc_sched(void) gcc_noreturn;	// Find and run some ready process
 void proc_run(proc *p) gcc_noreturn;	// Run a specific process
-void proc_run_from_trap(proc *p) gcc_noreturn;	// gch
 void proc_yield(trapframe *tf) gcc_noreturn;	// Yield to another process
 void proc_ret(trapframe *tf, int entry) gcc_noreturn;	// Return to parent
 void proc_check(void);			// Check process code
+void proc_mark(proc*, proc_state);
 
 
 #endif // !PIOS_KERN_PROC_H

@@ -71,9 +71,8 @@ TRAPHANDLER(th_simd,T_SIMD)
 TRAPHANDLER(th_secev,T_SECEV)
 
 TRAPHANDLER_NOEC(th_syscall,T_SYSCALL)
-
-
-
+TRAPHANDLER_NOEC(th_ltimer,T_LTIMER)
+TRAPHANDLER_NOEC(th_spurious,T_IRQ0 + IRQ_SPURIOUS)
 
 
 
@@ -89,9 +88,9 @@ pushal
 movw $(CPU_GDT_KDATA), %ax
 movw %ax, %ds
 movw %ax, %es
-movl $0, %ebp		// terminate flag for trap_return()
+movl $0, %ebp		// terminate flag for trap_return_ below
 pushl %esp			// trapframe*
-call trap           // trap(trapframe*)
+call trap
 
 
 
@@ -106,115 +105,67 @@ call trap           // trap(trapframe*)
 // since the new CPU state this function loads
 // replaces the caller's stack pointer and other registers.
 //
-.globl	trap_return_1
-.type	trap_return_1,@function
-.p2align 4, 0x90		/* 16-byte alignment, nop filled */
-trap_return_1:
+
+
+
+.globl	trap_return_
+.type	trap_return_,@function
+//.p2align 4, 0x90		/* 16-byte alignment, nop filled */
+trap_return_:
 /*
  * Lab 1: Your code here for trap_return
- * Works for lab 1 but broke for lab 2.
+ * trap_return(trapframe*)
  */
-//1:	jmp	1b		// just spin
+popl %eax		//return address
+popl %eax		//trapframe*
 
-// trap_return(trapframe *tf)
-//movl (%ebp), %eax
-//movl %eax, %ebp
-
-
-// trap_check_recover(trapframe *tf, void *recoverdata)
-movl (%ebp), %eax
-movl %eax, %ebp
-
-// trap(trapframe *tf)
-add $8, %ebp
-movl %ebp, %esp
-
-popl %eax	//trapframe*
-popal
-popw %gs
-popw %ax	//0
-popw %fs
-popw %ax	//0
-popw %es
-popw %ax	//0
-popw %ds
-popw %ax	//0
-popl %eax	//trap number
-popl %eax	//error code
-iret
-
-
-
-.globl	trap_return_2
-.type	trap_return_2,@function
-.p2align 4, 0x90		/* 16-byte alignment, nop filled */
-trap_return_2:
-/*
- * Lab 1: Your code here for trap_return
- * Works for lab 2 but has subtle bug.
- * Can you find it? (hint: compare with trap_return below)
- */
-next2:
-movl (%ebp), %ebx
-movl %ebx, %ebp			// next frame on stack
-cmp $0, (%ebp)			// previous %ebp == 0 for trap() frame (see above)
-jne next2
-
-// %ebp is at trap(trapframe *b) now
-// set stack pointer so b is on top
-add $8, %ebp
-movl %ebp, %esp
-
-popl %eax	//trapframe *b
-popal
-popl %gs
-popl %fs
-popl %es
-popl %ds
-popl %eax	//trap number
-popl %eax	//error code
-iret
-
-
-
-.globl	trap_return
-.type	trap_return,@function
-.p2align 4, 0x90		/* 16-byte alignment, nop filled */
-trap_return:
-/*
- * Lab 1: Your code here for trap_return
- * Works for lab 2.
- */
+//
+//unwind the stack
+//
 next:
 movl (%ebp), %ebx
-cmp $0, %ebx		// previous %ebp==0 for trap() frame (see above)
+cmp $0, %ebx		// previous ebp is 0 for trap() frame (see _alltraps)
 je attrap
-movl %ebx, %ebp		// next frame on stack
+movl %ebx, %ebp		// next frame 
 jmp next
 
-// %ebp is at trap(trapframe*) now
-// set stack pointer so trapframe* is on top
-attrap:
-add $8, %ebp
+attrap:				// ebp is at trap()
 movl %ebp, %esp
 
-popl %eax	//trapframe*
-popal
-popl %gs
-popl %fs
-popl %es
-popl %ds
-popl %eax	//trap number
-popl %eax	//error code
-iret
+//
+//restore registers
+//
+movl (%eax),  %edi
+movl 4(%eax), %esi
+movl 8(%eax), %ebp
+						//dont restore esp
+movl 16(%eax), %ebx
+movl 20(%eax), %edx
+movl 24(%eax), %ecx
+						//do eax last
+movw 32(%eax), %gs
+movw 36(%eax), %fs
+movw 40(%eax), %es
+movw 44(%eax), %ds
 
+//
+//set up for iret
+//
+pushl 72(%eax)			//ss
+pushl 68(%eax)			//esp
+pushl 64(%eax)			//eflags
+pushl 60(%eax)			//cs
+pushl 56(%eax)			//eip
+
+movl 28(%eax), %eax
+iret
 
 
 //
 //
 .globl	enter_user_mode
 .type	enter_user_mode,@function
-.p2align 4, 0x90		/* 16-byte alignment, nop filled */
+//.p2align 4, 0x90		/* 16-byte alignment, nop filled */
 enter_user_mode:
 popl %eax		//return address
 popl %ebx		//user function (eip)

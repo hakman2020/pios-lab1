@@ -8,7 +8,7 @@ ready_queue_init(ready_queue *q) {
 }
 
 void
-ready_queue_ready(ready_queue *q, proc *p)
+ready_queue_append(ready_queue *q, proc *p)
 {
 	//panic("proc_ready not implemented");
 
@@ -19,16 +19,13 @@ ready_queue_ready(ready_queue *q, proc *p)
 }
 
 proc*
-ready_queue_sched(ready_queue *q)
+ready_queue_pop(ready_queue *q)
 {
 	//panic("proc_sched not implemented");
-	for (;;) {
-		spinlock_acquire(&q->lock);
-		if (q->head != q->tail) {		//is queue not empty?
-			break;
-		}
+	spinlock_acquire(&q->lock);
+	if (q->head == q->tail) {		//is queue empty?
 		spinlock_release(&q->lock);
-		pause();
+		return NULL;
 	}
 
 	proc *readynext = q->head->readynext;	//first process in queue

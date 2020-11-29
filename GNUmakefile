@@ -93,7 +93,7 @@ GCCALTDIR := $(dir $(shell $(CC) -print-libgcc-file-name))
 CFLAGS += $(DEFS) $(LABDEFS) -fno-builtin -I$(TOP) -I$(TOP)/inc \
 		-I$(GCCDIR)/include -I$(GCCALTDIR)/include \
 		-MD -Wall -Wno-unused -Werror -gstabs \
-		-fno-asynchronous-unwind-tables
+		-fno-asynchronous-unwind-tables 
 
 # Add -fno-stack-protector if the option exists.
 CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 \

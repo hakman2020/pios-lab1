@@ -9,6 +9,7 @@
 
 #include <inc/string.h>
 #include <inc/syscall.h>
+#include <inc/stdio.h>
 
 #include <kern/cpu.h>
 #include <kern/mem.h>
@@ -69,15 +70,18 @@ proc_alloc(proc *p, uint32_t cn)
 	return cp;
 }
 
+
+
 // Put process p in the ready state and add it to the ready queue.
 void
 proc_ready(proc *p)
 {
 	//panic("proc_ready not implemented");
-	ready_queue_ready(&redi_ku, p);
-	p->state = PROC_READY;
-
+	proc_mark(p, PROC_READY);
+	ready_queue_append(&redi_ku, p);
 }
+
+#define INT_OPCODE_LEN 2
 
 // Save the current process's state before switching to another process.
 // Copies trapframe 'tf' into the proc struct,
@@ -89,7 +93,15 @@ proc_ready(proc *p)
 void
 proc_save(proc *p, trapframe *tf, int entry)
 {
+	memmove(&p->sv.tf, tf, sizeof(trapframe));
+	
+	if (entry != PROC_SYSCALL_COMPLETE) {
+		char *eip = (char*) p->sv.tf.eip;
+		eip -= INT_OPCODE_LEN;
+		p->sv.tf.eip = (uintptr_t) eip;
+	}
 }
+
 
 // Go to sleep waiting for a given child process to finish running.
 // Parent process 'p' must be running and locked on entry.
@@ -98,56 +110,69 @@ void gcc_noreturn
 proc_wait(proc *parent, proc *child, trapframe *parent_tf)
 {
 	//panic("proc_wait not implemented");
-	parent->state = PROC_WAIT;
+	if (parent->state != PROC_RUN) {
+		trap_return(parent_tf);
+
+	}
+
+	proc_mark(parent, PROC_WAIT);
 	parent->waitchild = child;
-	parent->sv.tf.eip = parent_tf->eip;
-	parent->sv.tf.esp = parent_tf->esp;
-	proc_ready(child);
-	proc_sched();	//pick a process, return from trap "into" it (run it)
+	proc_save(parent, parent_tf, PROC_SYSCALL_RESTART);
+
+	// return to child indirectly thru ready queue
+	// for a child to run, it must go thru the ready queue
+	proc_sched();
 }
+
+
+
 
 void gcc_noreturn
 proc_sched(void)
 {
 	//panic("proc_sched not implemented");
-
-	proc *p = ready_queue_sched(&redi_ku);
-	proc_run(p);
+	for (;;) {
+		proc *p = ready_queue_pop(&redi_ku);
+		if (p) {
+			proc_run(p);
+		}
+		pause();
+	}
 }
+
+
 
 // Switch to and run a specified process, which must already be locked.
 void gcc_noreturn
 proc_run(proc *p)
 {
 	//panic("proc_run not implemented");
-	assert(p);
-	cpu_which_where("proc_run");
-	cprintf("in proc_run: p=%x\n",p);
-	p->state = PROC_RUN;
-	p->runcpu = cpu_cur();
-	cpu_cur()->proc = p; 
-	enter_user_mode((void*)p->sv.tf.eip, (void*)p->sv.tf.esp);
+	proc_mark(p, PROC_RUN);
+	trap_return(&p->sv.tf);
 }
 
-void gcc_noreturn
-proc_run_from_trap(proc *p)
-{
-	//panic("proc_run not implemented");
-	cpu_which_where("proc_run_from_trap");
-	cprintf("in proc_run_from_trap: p=%x\n",p);
-	p->state = PROC_RUN;
-	p->runcpu = cpu_cur();
-	cpu_cur()->proc = p; 
-	trap_return(&(p->sv.tf));
-}
 
 // Yield the current CPU to another ready process.
 // Called while handling a timer interrupt.
 void gcc_noreturn
 proc_yield(trapframe *tf)
 {
-	panic("proc_yield not implemented");
+	//panic("proc_yield not implemented");
+
+	proc *run_now = ready_queue_pop(&redi_ku);
+	
+	if (run_now) {
+		proc *run_later = proc_cur();
+		//cprintf("proc_yield: proc_cur: state=%d\n",run_later->state);
+		proc_save(run_later, tf, PROC_SYSCALL_COMPLETE);
+		proc_ready(run_later);
+		proc_run(run_now);
+	}
+
+	trap_return(tf);
 }
+
+
 
 // Put the current process to sleep by "returning" to its parent process.
 // Used both when a process calls the SYS_RET system call explicitly,
@@ -156,11 +181,40 @@ proc_yield(trapframe *tf)
 void gcc_noreturn
 proc_ret(trapframe *tf, int entry)
 {
-	panic("proc_ret not implemented");
+	//panic("proc_ret not implemented");
+
+	proc *child = proc_cur();
+	proc *parent = child->parent;
+
+	//cprintf("(%d) proc_ret: parent: state=%d waitchild=%p\n",cpu_cur()->id,parent->state,parent->waitchild);
+	
+	if (parent->waitchild == child) {
+		parent->waitchild = NULL;
+		proc_save(child, tf, entry);
+		proc_mark(child, PROC_STOP);
+		proc_run(parent);
+		}
+
+	trap_return(tf);
 }
+
+
+
+void
+proc_mark(proc *p, proc_state state)
+{
+	p->state = state;
+	p->runcpu = NULL;
+	if (state == PROC_RUN) {
+		p->runcpu = cpu_cur();
+		p->runcpu->proc = p;
+	}
+}
+
 
 // Helper functions for proc_check()
 static void child(int n);
+static void child_original(int n);
 static void grandchild(int n);
 
 static struct procstate child_state;
@@ -168,6 +222,8 @@ static char gcc_aligned(16) child_stack[4][PAGESIZE];
 
 static volatile uint32_t pingpong = 0;
 static void *recovargs;
+
+
 
 void
 proc_check(void)
@@ -182,6 +238,8 @@ proc_check(void)
 		*--esp = 0;	// fake return address
 		child_state.tf.eip = (uint32_t) child;
 		child_state.tf.esp = (uint32_t) esp;
+		child_state.tf.cs = (uint32_t) CPU_GDT_UCODE+3;
+		child_state.tf.ss = (uint32_t) CPU_GDT_UDATA+3;
 
 		// Use PUT syscall to create each child,
 		// but only start the first 2 children for now.
@@ -239,6 +297,12 @@ proc_check(void)
 
 	cprintf("proc_check() succeeded!\n");
 }
+
+
+
+
+
+
 
 static void child(int n)
 {

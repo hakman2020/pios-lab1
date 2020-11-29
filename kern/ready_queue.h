@@ -8,14 +8,14 @@
 
 
 typedef struct ready_queue {
-proc *head, *tail;		//ready queue
-spinlock lock;	//protects the ready queue
-proc dummy;	//always at head of ready queue ( in geek: assert(head == &dummy) )
+	proc *head, *tail;	//ready queue
+	spinlock lock;		//protects the ready queue
+	proc dummy;			//always at head of ready queue i.e., assert(head == &dummy)
 } ready_queue;
 
 
 void ready_queue_init(ready_queue*);
-void ready_queue_ready(ready_queue*, proc*);
-proc* ready_queue_sched(ready_queue*);
+void ready_queue_append(ready_queue*, proc*);
+proc* ready_queue_pop(ready_queue*);
 
 #endif // !PIOS_KERN_READYQUEUE_H

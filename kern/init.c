@@ -74,19 +74,13 @@ init(void)
 	pic_init();		// setup the legacy PIC (mainly to disable it)
 	ioapic_init();		// prepare to handle external device interrupts
 	lapic_init();		// setup this CPU's local APIC
+	proc_init();
 	cpu_bootothers();	// Get other processors started
-	//cprintf("CPU %d (%s) has booted\n", cpu_cur()->id,
-	//	cpu_onboot() ? "BP" : "AP");
-	cpu_which_where("has booted");
+	cprintf("CPU %d (%s) has booted\n", cpu_cur()->id,
+		cpu_onboot() ? "BP" : "AP");
 
 	// Initialize the process management code.
-	proc_init();
-
-	//Lab 2 exercise 3 stuff
-	//proc_root->sv.tf.eip = (uint32_t) user;
-	//proc_root->sv.tf.esp = (uint32_t) user_stack + sizeof(user_stack);-
-	//proc_ready(proc_root);
-	//proc_sched();
+	//proc_init();
 
 	// Lab 1: change this so it enters user() in user mode,
 	// running on the user_stack declared above,
@@ -96,13 +90,19 @@ init(void)
 	uint32_t *esp = (uint32_t*) &user_stack[PAGESIZE];
 	proc_root->sv.tf.esp = (uint32_t) esp;
 	proc_root->sv.tf.eip = (uint32_t) user;
+	proc_root->sv.tf.cs = (uint32_t) CPU_GDT_UCODE+3;
+	proc_root->sv.tf.ss = (uint32_t) CPU_GDT_UDATA+3;
+
+	proc_root->sv.tf.ds = (uint32_t) CPU_GDT_UDATA+3;
+	proc_root->sv.tf.es = (uint32_t) CPU_GDT_UDATA+3;
+	proc_root->sv.tf.fs = (uint32_t) CPU_GDT_UDATA+3;
+	proc_root->sv.tf.gs = (uint32_t) CPU_GDT_UDATA+3;
 
 
 
-	//proc_ready(proc_root);
-	//proc_sched();
-	proc_run(proc_root);
-	//enter_user_mode(user, user_stack+sizeof(user_stack));
+	proc_ready(proc_root);
+	proc_sched();
+	//proc_run(proc_root);
 }
 
 

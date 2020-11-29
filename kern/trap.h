@@ -45,6 +45,7 @@ void trap_print(trapframe *tf);
 
 void trap(trapframe *tf) gcc_noreturn;
 void trap_return(trapframe *tf) gcc_noreturn;
+void trap_return_(trapframe *tf) gcc_noreturn;
 
 // Check for correct operation of trap handling.
 void trap_check_kernel(void);

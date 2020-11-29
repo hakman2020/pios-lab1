@@ -45,7 +45,9 @@ lapic_init()
 
 	// If we cared more about precise timekeeping,
 	// we would calibrate TICR with another time source such as the PIT.
-	lapicw(TICR, 10000000);
+	//lapicw(TICR, 10000000);
+	//lapicw(TICR, 10000000);
+	lapicw(TICR, 60000000);
 
 	// Disable logical interrupt lines.
 	lapicw(LINT0, MASKED);
